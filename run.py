@@ -7,7 +7,7 @@ import numpy as np
 st.title("错题分析-英语")
 st.markdown(
     "<p style='text-align: left; color: red;'>读取数据会很慢，请耐心等待。右上角有个小人在动，就表示正在运行。如果担心上课时候打不开，按键盘的“ctrl+p”,可以将当前页面保存为PDF。此外，点击右上角的三点图标，还可以进行一些设置，比如设置为宽屏。</p>",
-    unsafe_allow_html=True)
+    unsafeăl_html=True)
 
 # 上传Excel文件
 uploaded_file = st.file_uploader("请上传错题分析的Excel文件:", type=['xlsx'])
@@ -15,6 +15,21 @@ uploaded_file = st.file_uploader("请上传错题分析的Excel文件:", type=['
 if uploaded_file is not None:
     # 读取上传的文件，强制所有列为字符串
     df = pd.read_excel(uploaded_file, dtype=str, keep_default_na=False)
+
+    # 显示前几行数据以便调试
+    st.markdown("### Excel文件前几行预览")
+    st.write("以下是Excel文件的前5行（若行数不足则显示全部）：")
+    st.dataframe(df.head())
+
+    # 选择标准答案所在的行
+    st.markdown("### 选择标准答案行")
+    standard_answer_row = st.number_input(
+        "请输入标准答案所在的行号（Excel行号，从1开始，默认为2）：",
+        min_value=1,
+        value=2,
+        step=1
+    )
+    standard_answer_idx = standard_answer_row - 1  # 转换为pandas索引
 
     results = []
     debug_info = []
@@ -26,33 +41,38 @@ if uploaded_file is not None:
         # 使用列名作为题目标识（因第一行无题干）
         question_content = question_col
 
-        # 获取标准答案（第二行）
-        standard_answer = df.iloc[1][question_col]
+        # 获取标准答案（指定行）
+        try:
+            standard_answer = df.iloc[standard_answer_idx][question_col]
+        except IndexError:
+            debug_info.append(f"列 {question_col}: 错误 - 行索引 {standard_answer_idx} 超出数据范围")
+            continue
         standard_answer_str = str(standard_answer)  # 确保为字符串
 
         # 调试信息：记录标准答案及其类型
         debug_info.append(
             f"列 {question_col}: 标准答案 = {standard_answer_str}, 类型 = {type(standard_answer).__name__}")
 
-        # 获取学生答案（从第三行开始）
-        answers = df.iloc[2:][question_col].dropna()
+        # 获取学生答案（从标准答案行后的下一行开始）
+        answers = df.iloc[standard_answer_idx + 1:][question_col].dropna()
         valid_answers = answers[~answers.isin(["-", "- -", ""])]
         result = valid_answers.value_counts().reset_index()
         result.columns = ['答案', '出现次数']
 
         # 添加学生姓名列
         result['学生'] = result['答案'].apply(lambda x: ', '.join(
-            df[df[question_col] == x].iloc[2:]['学生姓名'].astype(str)))
+            df[df[question_col] == x].iloc[standard_answer_idx + 1:]['学生姓名'].astype(str)))
 
         # 统计正确答案数量和有效答题人数
-        correct_count = (df.iloc[2:][question_col].astype(str) == standard_answer_str).sum()
+        correct_count = (df.iloc[standard_answer_idx + 1:][question_col].astype(str) == standard_answer_str).sum()
 
-        total_count = df.iloc[2:][question_col].notna().sum() - df.iloc[2:][question_col].isin(["-", "- -", ""]).sum()
+        total_count = df.iloc[standard_answer_idx + 1:][question_col].notna().sum() - df.iloc[standard_answer_idx + 1:][
+            question_col].isin(["-", "- -", ""]).sum()
         accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
 
         # 计算答题人数
-        answering_count = df.iloc[2:][question_col].notna().sum() - df.iloc[2:][question_col].isin(
-            ["-", "- -", ""]).sum()
+        answering_count = df.iloc[standard_answer_idx + 1:][question_col].notna().sum() - \
+                          df.iloc[standard_answer_idx + 1:][question_col].isin(["-", "- -", ""]).sum()
 
         results.append({
             '题号': col_idx - 1,  # 题号从1开始
@@ -71,7 +91,7 @@ if uploaded_file is not None:
 
     # 检查是否有有效题目
     if not results:
-        st.error("没有找到任何题目。请检查Excel文件是否包含题目列（从第三列开始）。")
+        st.error("没有找到任何题目。请检查Excel文件是否包含题目列（从第三列开始）或标准答案行是否正确。")
     else:
         # 添加排序选项
         sort_option = st.selectbox("选择排序方式:", ["按照题目原本顺序", "按照正确率升序", "按照正确率降序"])
