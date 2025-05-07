@@ -54,7 +54,7 @@ if uploaded_file is not None:
         answering_count = df.iloc[2:][question_col].notna().sum() - df.iloc[2:][question_col].isin(
             ["-", "- -", ""]).sum()
 
-        results天津.append({
+        results.append({
             '题号': col_idx - 1,  # 题号从1开始
             '试题': question_content,
             '标准答案': standard_answer_str,  # 显示原始标准答案
