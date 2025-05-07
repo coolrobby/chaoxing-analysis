@@ -13,8 +13,8 @@ st.markdown(
 uploaded_file = st.file_uploader("请上传错题分析的Excel文件:", type=['xlsx'])
 
 if uploaded_file is not None:
-    # 读取上传的文件
-    df = pd.read_excel(uploaded_file)
+    # 读取上传的文件，强制所有列为字符串
+    df = pd.read_excel(uploaded_file, dtype=str, keep_default_na=False)
 
     results = []
     debug_info = []
@@ -26,16 +26,17 @@ if uploaded_file is not None:
         # 使用列名作为题目标识（因第一行无题干）
         question_content = question_col
 
-        # 获取标准答案（第二行），直接使用原始值并转换为字符串
+        # 获取标准答案（第二行）
         standard_answer = df.iloc[1][question_col]
-        standard_answer_str = str(standard_answer)  # 转换为字符串，处理nan或其他类型
+        standard_answer_str = str(standard_answer)  # 确保为字符串
 
-        # 调试信息：记录标准答案
-        debug_info.append(f"列 {question_col}: 标准答案 = {standard_answer_str}")
+        # 调试信息：记录标准答案及其类型
+        debug_info.append(
+            f"列 {question_col}: 标准答案 = {standard_answer_str}, 类型 = {type(standard_answer).__name__}")
 
         # 获取学生答案（从第三行开始）
         answers = df.iloc[2:][question_col].dropna()
-        valid_answers = answers[~answers.isin(["-", "- -"])]
+        valid_answers = answers[~answers.isin(["-", "- -", ""])]
         result = valid_answers.value_counts().reset_index()
         result.columns = ['答案', '出现次数']
 
@@ -44,16 +45,16 @@ if uploaded_file is not None:
             df[df[question_col] == x].iloc[2:]['学生姓名'].astype(str)))
 
         # 统计正确答案数量和有效答题人数
-        # 使用standard_answer_str（原始值字符串）进行比较
         correct_count = (df.iloc[2:][question_col].astype(str) == standard_answer_str).sum()
 
-        total_count = df.iloc[2:][question_col].notna().sum() - df.iloc[2:][question_col].isin(["-", "- -"]).sum()
+        total_count = df.iloc[2:][question_col].notna().sum() - df.iloc[2:][question_col].isin(["-", "- -", ""]).sum()
         accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
 
         # 计算答题人数
-        answering_count = df.iloc[2:][question_col].notna().sum() - df.iloc[2:][question_col].isin(["-", "- -"]).sum()
+        answering_count = df.iloc[2:][question_col].notna().sum() - df.iloc[2:][question_col].isin(
+            ["-", "- -", ""]).sum()
 
-        results.append({
+        results天津.append({
             '题号': col_idx - 1,  # 题号从1开始
             '试题': question_content,
             '标准答案': standard_answer_str,  # 显示原始标准答案
