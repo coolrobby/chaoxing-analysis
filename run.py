@@ -18,28 +18,6 @@ if uploaded_file is not None:
     # 替换列名
     df.columns = df.columns.str.replace('试题 ', '试题', regex=False)
 
-    # 提取教师和班级列
-    teachers = df['教师'].unique()
-    classes = df['班级'].unique()
-
-    # 选择教师
-    selected_teacher = st.selectbox("选择教师:", ["全部"] + list(teachers))
-
-    # 根据选择的教师过滤班级
-    if selected_teacher != "全部":
-        filtered_classes = df[df['教师'] == selected_teacher]['班级'].unique()
-    else:
-        filtered_classes = classes
-
-    # 选择班级
-    selected_class = st.selectbox("选择班级:", ["全部"] + list(filtered_classes))
-
-    # 根据选择的教师和班级进行过滤
-    if selected_teacher != "全部":
-        df = df[df['教师'] == selected_teacher]
-    if selected_class != "全部":
-        df = df[df['班级'] == selected_class]
-
     results = []
     i = 1
 
@@ -81,25 +59,14 @@ if uploaded_file is not None:
 
         i += 1  # 处理下一道题
 
-    # 添加排序选项
-    sort_option = st.selectbox("选择排序方式:", ["按照题目原本顺序", "按照正确率升序", "按照正确率降序"])
-
-    # 根据选择的排序方式进行排序
-    if sort_option == "按照正确率升序":
-        sorted_results = sorted(results, key=lambda x: x['正确率'])
-    elif sort_option == "按照正确率降序":
-        sorted_results = sorted(results, key=lambda x: x['正确率'], reverse=True)
-    else:
-        sorted_results = results  # 保持原本顺序
-
     # 创建导航栏
     st.sidebar.title("题目导航")
-    for res in sorted_results:
+    for res in results:
         question_link = f"[第{res['题号']}题 (正确率: {res['正确率']:.2f}%)](#{res['题号']})"
         st.sidebar.markdown(question_link)
 
-    # 显示选择的题目统计
-    for res in sorted_results:
+    # 显示题目统计
+    for res in results:
         st.markdown(f"<a id='{res['题号']}'></a>", unsafe_allow_html=True)  # 创建锚点
         st.subheader(f"第{res['题号']}题")
         st.write(f"题目: {res['试题']}")
