@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 import re
+import numpy as np
 
 # 设置页面标题
 st.title("错题分析-英语")
@@ -25,9 +26,13 @@ if uploaded_file is not None:
         # 使用列名作为题目标识（因第一行无题干）
         question_content = question_col
 
-        # 获取标准答案（第二行），去除“正确答案 :”或“正确答案：”
+        # 获取标准答案（第二行），检查是否为nan
         standard_answer = df.iloc[1][question_col]
-        standard_answer = re.sub(r'正确答案[:：]', '', str(standard_answer)).strip()
+        if pd.isna(standard_answer) or str(standard_answer).strip().lower() == 'nan':
+            continue  # 跳过标准答案为nan的题目
+
+        # 去除“正确答案:”或“正确答案：”，大小写不敏感
+        standard_answer = re.sub(r'正确答案[:：]', '', str(standard_answer), flags=re.IGNORECASE).strip()
 
         # 获取学生答案（从第三行开始）
         answers = df.iloc[2:][question_col].dropna()
@@ -57,54 +62,59 @@ if uploaded_file is not None:
             '错误答案统计': result[result['答案'] != standard_answer].sort_values(by='出现次数', ascending=False)
         })
 
-    # 添加排序选项
-    sort_option = st.selectbox("选择排序方式:", ["按照题目原本顺序", "按照正确率升序", "按照正确率降序"])
-
-    # 根据选择的排序方式进行排序
-    if sort_option == "按照正确率升序":
-        sorted_results = sorted(results, key=lambda x: x['正确率'])
-    elif sort_option == "按照正确率降序":
-        sorted_results = sorted(results, key=lambda x: x['正确率'], reverse=True)
+    # 检查是否有有效题目
+    if not results:
+        st.error("没有找到有效的题目（所有标准答案可能为nan或无效）。请检查Excel文件。")
     else:
-        sorted_results = results
+        # 添加排序选项
+        sort_option = st.selectbox("选择排序方式:", ["按照题目原本顺序", "按照正确率升序", "按照正确率降序"])
 
-    # 创建导航栏
-    st.sidebar.title("题目导航")
-    for res in sorted_results:
-        question_link = f"[第{res['题号']}题 (正确率: {res['正确率']:.2f}%)](#{res['题号']})"
-        st.sidebar.markdown(question_link)
+        # 根据选择的排序方式进行排序
+        if sort_option == "按照正确率升序":
+            sorted_results = sorted(results, key=lambda x: x['正确率'])
+        elif sort_option == "按照正确率降序":
+            sorted_results = sorted(results, key=lambda x: x['正确率'], reverse=True)
+        else:
+            sorted_results = results
 
-    # 显示选择的题目统计
-    for res in sorted_results:
-        st.markdown(f"<a id='{res['题号']}'></a>", unsafe_allow_html=True)
-        st.subheader(f"第{res['题号']}题")
-        st.write(f"题目: {res['试题']}")
-        st.write(f"标准答案: {res['标准答案']}")
-        st.write(f"答题人数: {res['答题人数']}")
-        st.write(f"正确率: {res['正确率']:.2f}%")
+        # 创建导航栏
+        st.sidebar.title("题目导航")
+        for res in sorted_results:
+            question_link = f"[第{res['题号']}题 (正确率: {res['正确率']:.2f}%)](#{res['题号']})"
+            st.sidebar.markdown(question_link)
 
-        if not res['错误答案统计'].empty:
-            st.write("#### 错误答案统计")
+        # 显示选择的题目统计
+        for res in sorted_results:
+            st.markdown(f"<a id='{res['题号']}'></a>", unsafe_allow_html=True)
+            st.subheader(f"第{res['题号']}题")
+            st.write(f"题目: {res['试题']}")
+            st.write(f"标准答案: {res['标准答案']}")
+            st.write(f"答题人数: {res['答题人数']}")
+            st.write(f"正确率: {res['正确率']:.2f}%")
 
-            error_stats = res['错误答案统计']
-            bar_chart = alt.Chart(error_stats).mark_bar(color='red').encode(
-                y=alt.Y('答案', sort='-x'),
-                x='出现次数',
-                tooltip=['答案', '出现次数', '学生']
-            ).properties(
-                title=''
-            )
+            if not res['错误答案统计'].empty:
+                st.write("#### 错误答案统计")
 
-            st.altair_chart(bar_chart, use_container_width=True)
+                error_stats = res['错误答案统计']
+                bar_chart = alt.Chart(error_stats).mark_bar(color='red').encode(
+                    y=alt.Y('答案', sort='-x'),
+                    x='出现次数',
+                    tooltip=['答案', '出现次数', '学生']
+                ).properties(
+                    title=''
+                )
 
-            for _, row in error_stats.iterrows():
-                color = 'green' if row['答案'] == res['标准答案'] else 'red'
-                st.markdown(f"<div style='color:black;'>答案: <span style='color:{color};'>{row['答案']}</span></div>",
-                            unsafe_allow_html=True)
-                st.write(f"出现次数: {row['出现次数']}")
-                st.write(f"学生: {row['学生']}")
-                st.write("")
+                st.altair_chart(bar_chart, use_container_width=True)
 
-    st.success("统计完成！")
+                for _, row in error_stats.iterrows():
+                    color = 'green' if row['答案'] == res['标准答案'] else 'red'
+                    st.markdown(
+                        f"<div style='color:black;'>答案: <span style='color:{color};'>{row['答案']}</span></div>",
+                        unsafe_allow_html=True)
+                    st.write(f"出现次数: {row['出现次数']}")
+                    st.write(f"学生: {row['学生']}")
+                    st.write("")
+
+        st.success("统计完成！")
 else:
     st.info("请上传一个Excel文件以进行错题分析。")
