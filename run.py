@@ -7,7 +7,8 @@ import numpy as np
 st.title("错题分析-英语")
 st.markdown(
     "<p style='text-align: left; color: red;'>读取数据会很慢，请耐心等待。右上角有个小人在动，就表示正在运行。如果担心上课时候打不开，按键盘的“ctrl+p”,可以将当前页面保存为PDF。此外，点击右上角的三点图标，还可以进行一些设置，比如设置为宽屏。</p>",
-    unsafe_html=True)
+    unsafe_html=True
+)
 
 # 上传Excel文件
 uploaded_file = st.file_uploader("请上传错题分析的Excel文件:", type=['xlsx'])
@@ -90,7 +91,7 @@ if uploaded_file is not None:
             })
 
         # 显示调试信息
-        st.markdown("### 调试信息")
+        st.markdown("### 调试信息", unsafe_html=True)
         for info in debug_info:
             st.write(info)
 
@@ -113,7 +114,7 @@ if uploaded_file is not None:
             st.sidebar.title("题目导航")
             for res in sorted_results:
                 question_link = f"[第{res['题号']}题 (正确率: {res['正确率']:.2f}%)](#{res['题号']})"
-                st.sidebar.markdown(question_link)
+                st.sidebar.markdown(question_link, unsafe_html=True)
 
             # 显示选择的题目统计
             for res in sorted_results:
