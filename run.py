@@ -2,7 +2,6 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 import re
-import numpy as np
 
 # 设置页面标题
 st.title("错题分析-英语")
@@ -18,6 +17,7 @@ if uploaded_file is not None:
     df = pd.read_excel(uploaded_file)
 
     results = []
+    invalid_columns = []
 
     # 从第三列开始处理题目（索引从0开始，所以第3列是索引2）
     for col_idx in range(2, len(df.columns)):
@@ -26,13 +26,21 @@ if uploaded_file is not None:
         # 使用列名作为题目标识（因第一行无题干）
         question_content = question_col
 
-        # 获取标准答案（第二行），检查是否为nan
+        # 获取标准答案（第二行）
         standard_answer = df.iloc[1][question_col]
-        if pd.isna(standard_answer) or str(standard_answer).strip().lower() == 'nan':
-            continue  # 跳过标准答案为nan的题目
+
+        # 检查标准答案是否有效
+        if pd.isna(standard_answer) or str(standard_answer).strip() == '':
+            invalid_columns.append(question_col)
+            continue
 
         # 去除“正确答案:”或“正确答案：”，大小写不敏感
-        standard_answer = re.sub(r'正确答案[:：]', '', str(standard_answer), flags=re.IGNORECASE).strip()
+        standard_answer_clean = re.sub(r'正确答案[:：]', '', str(standard_answer), flags=re.IGNORECASE).strip()
+
+        # 检查清洗后的标准答案是否有效
+        if not standard_answer_clean or standard_answer_clean.lower() == 'nan':
+            invalid_columns.append(question_col)
+            continue
 
         # 获取学生答案（从第三行开始）
         answers = df.iloc[2:][question_col].dropna()
@@ -45,7 +53,7 @@ if uploaded_file is not None:
             df[df[question_col] == x].iloc[2:]['学生姓名'].astype(str)))
 
         # 统计正确答案数量和有效答题人数
-        correct_count = (df.iloc[2:][question_col] == standard_answer).sum()
+        correct_count = (df.iloc[2:][question_col] == standard_answer_clean).sum()
         total_count = df.iloc[2:][question_col].notna().sum() - df.iloc[2:][question_col].isin(["-", "- -"]).sum()
         accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
 
@@ -55,16 +63,21 @@ if uploaded_file is not None:
         results.append({
             '题号': col_idx - 1,  # 题号从1开始
             '试题': question_content,
-            '标准答案': standard_answer,
+            '标准答案': standard_answer_clean,
             '答题人数': answering_count,
             '正确率': accuracy,
             '答案统计': result[['答案', '出现次数', '学生']],
-            '错误答案统计': result[result['答案'] != standard_answer].sort_values(by='出现次数', ascending=False)
+            '错误答案统计': result[result['答案'] != standard_answer_clean].sort_values(by='出现次数', ascending=False)
         })
+
+    # 显示无效列的警告
+    if invalid_columns:
+        st.warning(f"以下题目因标准答案无效（空或无法解析）被跳过：{', '.join(invalid_columns)}")
 
     # 检查是否有有效题目
     if not results:
-        st.error("没有找到有效的题目（所有标准答案可能为nan或无效）。请检查Excel文件。")
+        st.error(
+            "没有找到有效的题目（所有标准答案可能为空或无效）。请检查Excel文件的第二行，确保包含有效的标准答案（如 '正确答案:D'）。")
     else:
         # 添加排序选项
         sort_option = st.selectbox("选择排序方式:", ["按照题目原本顺序", "按照正确率升序", "按照正确率降序"])
