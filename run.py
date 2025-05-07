@@ -29,7 +29,6 @@ if uploaded_file is not None:
         standard_answer = df.iloc[0][question_col]
         # 处理全角和半角冒号
         import re
-
         pattern = re.compile(r'[:：]')
         parts = pattern.split(str(standard_answer))
         if len(parts) > 1:
@@ -39,14 +38,19 @@ if uploaded_file is not None:
 
         # 获取学生答案（从第十六行开始），过滤掉空答案
         student_answers = df.iloc[15:][question_col]
-        valid_answers = student_answers[student_answers.str.strip() != ""]
+        valid_answers = student_answers[student_answers.str.strip() != ""].copy()
 
+        # 如果没有有效答案，跳过该题目
+        if valid_answers.empty:
+            continue
+
+        # 统计答案分布
         result = valid_answers.value_counts().reset_index()
         result.columns = ['答案', '出现次数']
 
         # 添加学生姓名列
         result['学生'] = result['答案'].apply(lambda x: ', '.join(
-            df[df[question_col] == x].iloc[15:]['学生姓名'].astype(str)))
+            df[(df[question_col] == x) & (df.index >= 15)]['学生姓名'].astype(str)))
 
         # 统计正确答案数量
         correct_count = (valid_answers.astype(str) == standard_answer_str).sum()
@@ -59,7 +63,7 @@ if uploaded_file is not None:
         results.append({
             '题号': col_idx - 1,  # 题号从1开始
             '试题': question_content,
-            '标准答案': standard_answer_str,  # 显示原始标准答案
+            '标准答案': standard_answer_str,
             '答题人数': total_count,
             '正确率': accuracy,
             '答案统计': result[['答案', '出现次数', '学生']],
@@ -68,7 +72,7 @@ if uploaded_file is not None:
 
     # 检查是否有有效题目
     if not results:
-        st.error("没有找到任何题目。请检查Excel文件是否包含题目列（从第三列开始）。")
+        st.error("没有找到任何题目或所有题目均无有效答案。请检查Excel文件是否包含题目列（从第三列开始）且有非空答案。")
     else:
         # 添加排序选项
         sort_option = st.selectbox("选择排序方式:", ["按照题目原本顺序", "按照正确率升序", "按照正确率降序"])
@@ -115,6 +119,16 @@ if uploaded_file is not None:
                 st.write(f"出现次数: {row['出现次数']}")
                 st.write(f"学生: {row['学生']}")
                 st.write("")
+
+            # 显示错误答案统计（如果有）
+            if not res['错误答案统计'].empty:
+                st.write("#### 错误答案统计")
+                for _, row in res['错误答案统计'].iterrows():
+                    st.markdown(f"<div style='color:black;'>错误答案: <span style='color:red;'>{row['答案']}</span></div>",
+                                unsafe_allow_html=True)
+                    st.write(f"出现次数: {row['出现次数']}")
+                    st.write(f"学生: {row['学生']}")
+                    st.write("")
 
         st.success("统计完成！")
 else:
