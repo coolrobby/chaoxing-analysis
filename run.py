@@ -22,10 +22,10 @@ if uploaded_file is not None:
     for col_idx in range(2, len(df.columns)):
         question_col = df.columns[col_idx]
 
-        # 获取题目内容（第一行）
-        question_content = df.iloc[0][question_col]
+        # 使用列名作为题目标识（因第一行无题干）
+        question_content = question_col
 
-        # 获取标准答案（第二行），去除“正确答案:”或“正确答案：”
+        # 获取标准答案（第二行），去除“正确答案 :”或“正确答案：”
         standard_answer = df.iloc[1][question_col]
         standard_answer = re.sub(r'正确答案[:：]', '', str(standard_answer)).strip()
 
