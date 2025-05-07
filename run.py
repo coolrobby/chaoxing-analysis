@@ -4,9 +4,9 @@ import numpy as np
 import pandas as pd
 
 # 设置页面标题
-st.title("错题分析-英语")
+st.title("超星题目分析小工具")
 st.markdown(
-    "<p style='text-align: left; color: red;'>读取数据会很慢，请耐心等待。右上角有个小人在动，就表示正在运行。如果担心上课时候打不开，按键盘的“ctrl + p”,可以将当前页面保存为PDF。此外，点击右上角的三点图标，还可以进行一些设置，比如设置为宽屏。</p>",
+    "<p style='text-align: left; color: red;'>川哥做的小工具。只能分析普通的选择题和填空题，不能分析大题。因为我用不上。</p>",
     unsafe_allow_html=True)
 
 # 上传Excel文件
