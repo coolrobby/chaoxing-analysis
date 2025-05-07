@@ -129,4 +129,24 @@ if uploaded_file is not None:
 
                     error_stats = res['错误答案统计']
                     bar_chart = alt.Chart(error_stats).mark_bar(color='red').encode(
-                        y
+                        y=alt.Y('答案', sort='-x'),
+                        x='出现次数',
+                        tooltip=['答案', '出现次数', '学生']
+                    ).properties(
+                        title=''
+                    )
+
+                    st.altair_chart(bar_chart, use_container_width=True)
+
+                    for _, row in error_stats.iterrows():
+                        color = 'green' if row['答案'] == res['标准答案'] else 'red'
+                        st.markdown(
+                            f"<div style='color:black;'>答案: <span style='color:{color};'>{row['答案']}</span></div>",
+                            unsafe_html=True)
+                        st.write(f"出现次数: {row['出现次数']}")
+                        st.write(f"学生: {row['学生']}")
+                        st.write("")
+
+            st.success("统计完成！")
+else:
+    st.info("请上传一个Excel文件以进行错题分析。")
