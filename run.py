@@ -72,10 +72,6 @@ if uploaded_file is not None:
             '错误答案统计': result[result['答案'] != standard_answer_str].sort_values(by='出现次数', ascending=False)
         })
 
-    # 显示调试信息
-    st.markdown("### 调试信息")
-    for info in debug_info:
-        st.write(info)
 
     # 检查是否有有效题目
     if not results:
