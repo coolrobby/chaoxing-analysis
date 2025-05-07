@@ -28,10 +28,19 @@ if uploaded_file is not None:
 
         # 获取标准答案（第一行）
         standard_answer = df.iloc[0][question_col]
-        standard_answer_str = str(standard_answer).split(':')[-1].strip()  # 确保为字符串，并提取冒号后的内容
+        # 处理全角和半角冒号
+        import re
+
+        pattern = re.compile(r'[:：]')
+        parts = pattern.split(str(standard_answer))
+        if len(parts) > 1:
+            standard_answer_str = parts[-1].strip()
+        else:
+            standard_answer_str = parts[0].strip()
 
         # 调试信息：记录标准答案及其类型
-        debug_info.append(f"列 {question_col}: 标准答案 = {standard_answer_str}, 类型 = {type(standard_answer).__name__}")
+        debug_info.append(
+            f"列 {question_col}: 标准答案 = {standard_answer_str}, 类型 = {type(standard_answer).__name__}")
 
         # 获取学生答案（从第十六行开始）
         answers = df.iloc[15:][question_col].dropna()
@@ -50,7 +59,8 @@ if uploaded_file is not None:
         accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
 
         # 计算答题人数
-        answering_count = df.iloc[15:][question_col].notna().sum() - df.iloc[15:][question_col].isin(["-", "- -", ""]).sum()
+        answering_count = df.iloc[15:][question_col].notna().sum() - df.iloc[15:][question_col].isin(
+            ["-", "- -", ""]).sum()
 
         results.append({
             '题号': col_idx - 1,  # 题号从1开始
@@ -113,8 +123,9 @@ if uploaded_file is not None:
 
                 for _, row in error_stats.iterrows():
                     color = 'green' if row['答案'] == res['标准答案'] else 'red'
-                    st.markdown(f"<div style='color:black;'>答案: <span style='color:{color};'>{row['答案']}</span></div>",
-                                unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div style='color:black;'>答案: <span style='color:{color};'>{row['答案']}</span></div>",
+                        unsafe_allow_html=True)
                     st.write(f"出现次数: {row['出现次数']}")
                     st.write(f"学生: {row['学生']}")
                     st.write("")
