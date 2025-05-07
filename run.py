@@ -18,6 +18,7 @@ if uploaded_file is not None:
 
     results = []
     invalid_columns = []
+    debug_info = []
 
     # 从第三列开始处理题目（索引从0开始，所以第3列是索引2）
     for col_idx in range(2, len(df.columns)):
@@ -29,17 +30,25 @@ if uploaded_file is not None:
         # 获取标准答案（第二行）
         standard_answer = df.iloc[1][question_col]
 
+        # 调试信息：记录原始标准答案
+        debug_info.append(f"列 {question_col}: 原始标准答案 = {standard_answer}")
+
         # 检查标准答案是否有效
-        if pd.isna(standard_answer) or str(standard_answer).strip() == '':
+        if pd.isna(standard_answer):
             invalid_columns.append(question_col)
+            debug_info.append(f"列 {question_col}: 跳过（标准答案为 NaN）")
             continue
 
-        # 去除“正确答案:”或“正确答案：”，大小写不敏感
-        standard_answer_clean = re.sub(r'正确答案[:：]', '', str(standard_answer), flags=re.IGNORECASE).strip()
+        # 去除“正确答案:”或“正确答案：”，允许额外空格
+        standard_answer_clean = re.sub(r'正确答案\s*[:：]\s*', '', str(standard_answer), flags=re.IGNORECASE).strip()
+
+        # 调试信息：记录清洗后的标准答案
+        debug_info.append(f"列 {question_col}: 清洗后标准答案 = {standard_answer_clean}")
 
         # 检查清洗后的标准答案是否有效
-        if not standard_answer_clean or standard_answer_clean.lower() == 'nan':
+        if not standard_answer_clean:
             invalid_columns.append(question_col)
+            debug_info.append(f"列 {question_col}: 跳过（清洗后标准答案为空）")
             continue
 
         # 获取学生答案（从第三行开始）
@@ -70,14 +79,18 @@ if uploaded_file is not None:
             '错误答案统计': result[result['答案'] != standard_answer_clean].sort_values(by='出现次数', ascending=False)
         })
 
+    # 显示调试信息
+    st.markdown("### 调试信息")
+    for info in debug_info:
+        st.write(info)
+
     # 显示无效列的警告
     if invalid_columns:
         st.warning(f"以下题目因标准答案无效（空或无法解析）被跳过：{', '.join(invalid_columns)}")
 
     # 检查是否有有效题目
     if not results:
-        st.error(
-            "没有找到有效的题目（所有标准答案可能为空或无效）。请检查Excel文件的第二行，确保包含有效的标准答案（如 '正确答案:D'）。")
+        st.error("没有找到有效的题目。请检查Excel文件的第二行，确保包含有效的标准答案（如 '正确答案:D'）。")
     else:
         # 添加排序选项
         sort_option = st.selectbox("选择排序方式:", ["按照题目原本顺序", "按照正确率升序", "按照正确率降序"])
