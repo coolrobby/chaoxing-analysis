@@ -120,15 +120,6 @@ if uploaded_file is not None:
                 st.write(f"学生: {row['学生']}")
                 st.write("")
 
-            # 显示错误答案统计（如果有）
-            if not res['错误答案统计'].empty:
-                st.write("#### 错误答案统计")
-                for _, row in res['错误答案统计'].iterrows():
-                    st.markdown(f"<div style='color:black;'>错误答案: <span style='color:red;'>{row['答案']}</span></div>",
-                                unsafe_allow_html=True)
-                    st.write(f"出现次数: {row['出现次数']}")
-                    st.write(f"学生: {row['学生']}")
-                    st.write("")
 
         st.success("统计完成！")
 else:
