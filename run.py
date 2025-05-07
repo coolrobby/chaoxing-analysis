@@ -17,7 +17,6 @@ if uploaded_file is not None:
     df = pd.read_excel(uploaded_file, dtype=str, keep_default_na=False)
 
     results = []
-    debug_info = []
 
     # 从第三列开始处理题目（索引从0开始，所以第3列是索引2）
     for col_idx in range(2, len(df.columns)):
@@ -38,13 +37,10 @@ if uploaded_file is not None:
         else:
             standard_answer_str = parts[0].strip()
 
-        # 调试信息：记录标准答案及其类型
-        debug_info.append(
-            f"列 {question_col}: 标准答案 = {standard_answer_str}, 类型 = {type(standard_answer).__name__}")
+        # 获取学生答案（从第十六行开始），过滤掉空答案
+        student_answers = df.iloc[15:][question_col]
+        valid_answers = student_answers[student_answers.str.strip() != ""]
 
-        # 获取学生答案（从第十六行开始）
-        answers = df.iloc[15:][question_col].dropna()
-        valid_answers = answers[~answers.isin(["-", "- -", ""])]
         result = valid_answers.value_counts().reset_index()
         result.columns = ['答案', '出现次数']
 
@@ -52,26 +48,23 @@ if uploaded_file is not None:
         result['学生'] = result['答案'].apply(lambda x: ', '.join(
             df[df[question_col] == x].iloc[15:]['学生姓名'].astype(str)))
 
-        # 统计正确答案数量和有效答题人数
-        correct_count = (df.iloc[15:][question_col].astype(str) == standard_answer_str).sum()
+        # 统计正确答案数量
+        correct_count = (valid_answers.astype(str) == standard_answer_str).sum()
 
-        total_count = df.iloc[15:][question_col].notna().sum() - df.iloc[15:][question_col].isin(["-", "- -", ""]).sum()
+        # 计算有效答题人数
+        total_count = len(valid_answers)
+
         accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
-
-        # 计算答题人数
-        answering_count = df.iloc[15:][question_col].notna().sum() - df.iloc[15:][question_col].isin(
-            ["-", "- -", ""]).sum()
 
         results.append({
             '题号': col_idx - 1,  # 题号从1开始
             '试题': question_content,
             '标准答案': standard_answer_str,  # 显示原始标准答案
-            '答题人数': answering_count,
+            '答题人数': total_count,
             '正确率': accuracy,
             '答案统计': result[['答案', '出现次数', '学生']],
             '错误答案统计': result[result['答案'] != standard_answer_str].sort_values(by='出现次数', ascending=False)
         })
-
 
     # 检查是否有有效题目
     if not results:
