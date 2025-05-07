@@ -1,6 +1,7 @@
 import pandas as pd
 import streamlit as st
 import altair as alt
+import re
 
 # 设置页面标题
 st.title("错题分析-英语")
@@ -15,40 +16,39 @@ if uploaded_file is not None:
     # 读取上传的文件
     df = pd.read_excel(uploaded_file)
 
-    # 替换列名
-    df.columns = df.columns.str.replace('试题 ', '试题', regex=False)
-
     results = []
-    i = 1
 
-    while True:
-        answer_col = f'回答{i}'  # 动态生成回答列名
-        if answer_col not in df.columns:
-            break
+    # 从第三列开始处理题目（索引从0开始，所以第3列是索引2）
+    for col_idx in range(2, len(df.columns)):
+        question_col = df.columns[col_idx]
 
-        answers = df[answer_col].dropna()  # 获取回答
+        # 获取题目内容（第一行）
+        question_content = df.iloc[0][question_col]
+
+        # 获取标准答案（第二行），去除“正确答案:”或“正确答案：”
+        standard_answer = df.iloc[1][question_col]
+        standard_answer = re.sub(r'正确答案[:：]', '', str(standard_answer)).strip()
+
+        # 获取学生答案（从第三行开始）
+        answers = df.iloc[2:][question_col].dropna()
         valid_answers = answers[~answers.isin(["-", "- -"])]
-        result = valid_answers.value_counts().reset_index()  # 统计答案出现次数
+        result = valid_answers.value_counts().reset_index()
         result.columns = ['答案', '出现次数']
 
-        # 添加学生列
+        # 添加学生姓名列
         result['学生'] = result['答案'].apply(lambda x: ', '.join(
-            df[df[answer_col] == x]['姓氏'].astype(str) + df[df[answer_col] == x]['名'].astype(str)))
+            df[df[question_col] == x].iloc[2:]['学生姓名'].astype(str)))
 
-        standard_answer_col = f'标准答案{i}'  # 动态生成标准答案列名
-        standard_answer = df[standard_answer_col].iloc[0]  # 获取标准答案，取第一行
-
-        correct_count = (df[answer_col] == standard_answer).sum()  # 统计正确答案数量
-        total_count = df[answer_col].notna().sum() - df[answer_col].isin(["-", "- -"]).sum()  # 计算有效答题人数
+        # 统计正确答案数量和有效答题人数
+        correct_count = (df.iloc[2:][question_col] == standard_answer).sum()
+        total_count = df.iloc[2:][question_col].notna().sum() - df.iloc[2:][question_col].isin(["-", "- -"]).sum()
         accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
 
-        # 计算答题人数（所有答案不为“–”的人数）
-        answering_count = df[answer_col].notna().sum() - df[answer_col].isin(["-", "- -"]).sum()
-
-        question_content = df[f'试题{i}'].iloc[0]  # 获取题目内容，取第一行
+        # 计算答题人数
+        answering_count = df.iloc[2:][question_col].notna().sum() - df.iloc[2:][question_col].isin(["-", "- -"]).sum()
 
         results.append({
-            '题号': i,
+            '题号': col_idx - 1,  # 题号从1开始
             '试题': question_content,
             '标准答案': standard_answer,
             '答题人数': answering_count,
@@ -56,8 +56,6 @@ if uploaded_file is not None:
             '答案统计': result[['答案', '出现次数', '学生']],
             '错误答案统计': result[result['答案'] != standard_answer].sort_values(by='出现次数', ascending=False)
         })
-
-        i += 1  # 处理下一道题
 
     # 添加排序选项
     sort_option = st.selectbox("选择排序方式:", ["按照题目原本顺序", "按照正确率升序", "按照正确率降序"])
@@ -68,7 +66,7 @@ if uploaded_file is not None:
     elif sort_option == "按照正确率降序":
         sorted_results = sorted(results, key=lambda x: x['正确率'], reverse=True)
     else:
-        sorted_results = results  # 保持原本顺序
+        sorted_results = results
 
     # 创建导航栏
     st.sidebar.title("题目导航")
@@ -78,7 +76,7 @@ if uploaded_file is not None:
 
     # 显示选择的题目统计
     for res in sorted_results:
-        st.markdown(f"<a id='{res['题号']}'></a>", unsafe_allow_html=True)  # 创建锚点
+        st.markdown(f"<a id='{res['题号']}'></a>", unsafe_allow_html=True)
         st.subheader(f"第{res['题号']}题")
         st.write(f"题目: {res['试题']}")
         st.write(f"标准答案: {res['标准答案']}")
@@ -88,7 +86,6 @@ if uploaded_file is not None:
         if not res['错误答案统计'].empty:
             st.write("#### 错误答案统计")
 
-            # 从上往下的柱形图
             error_stats = res['错误答案统计']
             bar_chart = alt.Chart(error_stats).mark_bar(color='red').encode(
                 y=alt.Y('答案', sort='-x'),
@@ -100,16 +97,14 @@ if uploaded_file is not None:
 
             st.altair_chart(bar_chart, use_container_width=True)
 
-            # 列出所有错误答案
             for _, row in error_stats.iterrows():
                 color = 'green' if row['答案'] == res['标准答案'] else 'red'
                 st.markdown(f"<div style='color:black;'>答案: <span style='color:{color};'>{row['答案']}</span></div>",
                             unsafe_allow_html=True)
                 st.write(f"出现次数: {row['出现次数']}")
                 st.write(f"学生: {row['学生']}")
-                st.write("")  # 添加空行
+                st.write("")
 
     st.success("统计完成！")
-
 else:
     st.info("请上传一个Excel文件以进行错题分析。")
